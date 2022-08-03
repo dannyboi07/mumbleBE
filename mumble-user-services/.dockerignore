@@ -1,0 +1,5 @@
+.env
+.gitignore
+private.pem
+public.pem
+dev.Dockerfile

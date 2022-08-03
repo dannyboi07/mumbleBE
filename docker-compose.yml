@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+    redis:
+        image: redis:alpine
+        volumes:
+            - ./redis-data/data:/data
+    user-service:
+        image: mumble-user-service-img
+        build:
+            context: ./mumble-user-services
+            dockerfile: dev.Dockerfile
+        environment: # Templated variables are defined in .env
+            -   DB_CONN=${DB_CONN}
+            -   SRVR_ADDR=${SRVR_ADDR}
+            -   REDIS_ADDR=redis:6379
+            -   REDIS_PWD=${REDIS_PWD}
+            -   REDIS_DB=${REDIS_DB}
+        # scale: 2
+    message-service:
+        image: mumble-message-service-img
+        build:
+            context: ./mumble-message-service
+            dockerfile: dev.Dockerfile
+        environment:
+            -   DB_CONN=${DB_CONN}
+            -   MQ_ADDR=${MQ_ADDR}
+            -   REDIS_ADDR=redis:6379
+            -   REDIS_PWD=${REDIS_PWD}
+            -   REDIS_DB=${REDIS_DB}
+            -   SRVR_ADDR=${SRVR_ADDR}
+        # scale: 2
+    backend-lb:
+        image: nginx:alpine
+        volumes:
+            -   ./nginx-backend-lb.conf:/etc/nginx/nginx.conf:ro
+        depends_on:
+            -   user-service
+            -   message-service
+    gateway-service:
+        image: mumble-gateway-service-img
+        build: 
+            context: ./mumble-gateway-service
+            dockerfile: dev.Dockerfile
+        environment:
+            -   USR_SRVC_ADDR=backend-lb:80
+            -   MSG_SRVC_ADDR=backend-lb:80
+            -   MQ_ADDR=${MQ_ADDR}
+            -   REDIS_ADDR=redis:6379
+            -   REDIS_PWD=${REDIS_PWD}
+            -   REDIS_DB=${REDIS_DB}
+            -   S3_BUCKET=${S3_BUCKET}
+            -   AWS_REGION=${AWS_REGION}
+            -   AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+            -   AWS_SECRET_KEY=${AWS_SECRET_KEY}
+        depends_on:
+            -   message-service
+            -   user-service
+        # scale: 2
+    frontend-lb:
+        image: nginx:alpine
+        volumes:
+            -   ./nginx-frontend-lb.conf:/etc/nginx/nginx.conf:ro
+        ports:
+            -   80:80
+        depends_on:
+            -   gateway-service

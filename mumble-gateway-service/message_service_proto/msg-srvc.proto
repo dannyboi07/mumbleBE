@@ -1,0 +1,45 @@
+syntax = "proto3";
+option go_package = "mumble-message-service/message-service-proto";
+import "google/protobuf/timestamp.proto";
+// package msg_srvc_proto;
+
+// Basic form of a message. Will come through as input from a websocket connection to be saved
+// message MessageIn {
+//     int64 from = 1;
+//     int64 to = 2;
+//     string text = 3;
+// }
+
+// Will be sent as output to the sender and the receiver through WS.
+// message MessageOut {
+//     int64 message_id = 1;
+//     MessageIn message = 2;
+//     timestamp timestamp = 3;
+// }
+
+message Message {
+    int64 msg_id = 1;
+    int64 from = 2;
+    int64 to = 3;
+    string text = 4;
+    google.protobuf.Timestamp time = 5;
+}
+
+// Array of messages sent from the API gateway when client queries for messages by HTTP.
+message Messages {
+    repeated Message messages = 1;
+}
+
+// Input for querying messages by HTTP. Will be sent to the API gateway. 
+// Msgs between the two contacts will be returned with the specified offset.
+message MessageQuery {
+    int64 contact_id_1 = 1;
+    int64 contact_id_2 = 2;
+    int64 offset = 3;
+}
+
+service MessageService {
+    // rpc SaveMsg(MessageIn) returns (MessageOut) {}
+
+    rpc GetMsgs(MessageQuery) returns (Messages) {}
+}

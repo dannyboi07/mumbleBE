@@ -1,0 +1,21 @@
+CREATE TABLE users (
+	user_id BIGSERIAL NOT NULL PRIMARY KEY,
+	name VARCHAR(50),
+	email VARCHAR(20),
+	profile_pic VARCHAR(200),
+	password_hash VARCHAR(80)
+);
+
+CREATE TABLE user_contact (
+	contact_id BIGSERIAL NOT NULL PRIMARY KEY,
+	user_1_id BIGSERIAL REFERENCES users(user_id),
+	user_2_id BIGSERIAL REFERENCES users(user_id)
+);
+
+CREATE TABLE message (
+	message_id BIGSERIAL NOT NULL PRIMARY KEY,
+	msg_from BIGSERIAL REFERENCES users(user_id),
+	msg_to BIGSERIAL REFERENCES users(user_id),
+	text VARCHAR(4096) NOT NULL,
+	time timestamp DEFAULT date_trunc('second', CURRENT_TIMESTAMP)
+);

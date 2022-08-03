@@ -1,0 +1,37 @@
+1. Message service will post the saved message on a fanout exchange, all api gateway instances will receive it, if the 'to' user id
+exists in the connection list, send the message there.
+Pros: Short number of queues
+Cons: Every instance uselessly receives a message, inefficient usage of rabbitmq as it provides routing keys,
+    high locking and unlocking of connection maplist, which will increase linearly as the amount of message processed by the system
+    increases
+
+2. Message service will post the saved message with routing key "sendmessage/${userID}", and rabbitmq will route it to a queue based on the userID
+Pros: The message is properly routed, and only the user's server thread receives the message
+Cons: Insane number of queues, linear relationship with the number of users, eg million queues for a million users
+Should use auto delete queues in this instance
+
+3. Message service will post the saved message with routing key "sendmessage/${serverId}"queue for each user
+
+Going with 2nd approach. Message service will check if user is online through Redis, if online, then publish on MAG queue, or else 
+on a queue where User Service is listening
+Define application ID in the environment, store the userId with the instance/docker hostname ID. Create RabbitMQ queues with each
+instance listening on 
+
+WsMsgIn Format
+{
+    MsgUid: int64,
+    Type: string, // msg, sub, getstatus
+    From, int64,
+    To: int64,
+    Text: string
+}
+
+WsMsgOut Format
+{   
+    MsgId: int64,
+    MsgUid: int64,
+    Type: string, // msg, sub, getstatus
+    From, int64,
+    To: int64,
+    Text: string   
+}

@@ -1,0 +1,5 @@
+.env
+redis-data
+mq-data
+*.pem
+*.csv

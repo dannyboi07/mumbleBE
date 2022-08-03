@@ -1,0 +1,107 @@
+syntax = "proto3";
+option go_package = "mumble-user-service/user-service-proto";
+import "google/protobuf/empty.proto";
+
+message RegisterReq {
+    string email = 1;
+    string name = 2;
+    string password = 3;
+    string profile_pic = 4;
+}
+
+message LoginReq {
+    string email = 1;
+    string password = 2;
+}
+
+message LoginResp {
+    int64 user_id = 1;
+    string name = 2;
+    string email = 3;
+    string profile_pic = 4;
+    string accessToken = 5;
+    string refreshToken = 6;
+    int64 accessTokenExp = 7;
+    int64 refreshTokenExp = 8;
+}
+
+message LogOutReq {
+    int64 userId = 1;
+}
+
+message ChangePwdReq {
+    int64 user_id = 1;
+    string old_password = 2;
+    string new_password = 3;
+}
+
+message ChangeDpReq {
+    int64 user_id = 1;
+    string profile_pic = 2;
+}
+
+message SearchUserReq {
+    string email = 1;
+    int64 user_id = 2;
+}
+
+message SearchUserResp {
+    int64 user_id = 1;
+    string name = 2;
+    string profile_pic = 3;
+    bool is_friend = 4;
+}
+
+message AddContactReq {
+    int64 contact_id_1 = 1;
+    int64 contact_id_2 = 2;
+}
+
+message GetContactsReq {
+    int64 user_id = 1;
+}
+
+message GetContactsResp {
+    message Contact {
+        int64 user_id = 1;
+        string name = 2;
+        string profile_pic = 3;
+    }
+
+    repeated Contact contacts = 1;
+}
+
+message RefreshAccTokenReq {
+    string refreshToken = 1;
+    int64 user_id = 2;
+}
+
+message RefreshAccTokenResp {
+    string accessToken = 1;
+    string refreshToken = 2;
+    int64 accessTokenExp = 3;
+    int64 refreshTokenExp = 4;
+}
+
+message GetRSAKeysResp {
+    bytes private_key = 1;
+    bytes public_key = 2;
+}
+
+service UserService {
+    rpc RegisterUser(RegisterReq) returns (google.protobuf.Empty) {};
+    rpc LoginUser(LoginReq) returns (LoginResp) {};
+    rpc LogoutUser(LogOutReq) returns (google.protobuf.Empty) {};
+
+    rpc ChangePwd(ChangePwdReq) returns (google.protobuf.Empty) {};
+    rpc ChangeDp(ChangeDpReq) returns (google.protobuf.Empty) {};
+
+    rpc SearchUser(SearchUserReq) returns (SearchUserResp) {};
+
+    rpc AddContact(AddContactReq) returns (google.protobuf.Empty) {};
+    rpc GetContacts(GetContactsReq) returns (GetContactsResp) {};
+
+    rpc RefreshAccToken(RefreshAccTokenReq) returns (RefreshAccTokenResp) {};
+
+    rpc GetRSAKeys(google.protobuf.Empty) returns (GetRSAKeysResp) {};
+}

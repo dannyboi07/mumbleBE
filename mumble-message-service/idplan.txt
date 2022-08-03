@@ -1,0 +1,11 @@
+FE:make a uuid when msg has to be sent. Send the msg along with it's uuid.
+Gateway accepts, posts it on the queue, send it along with the uuid.
+After msging service saves it, it will post it back on another queue along with the actual msg id and uuid.
+
+FE will receive it, (now here you can have the acknowledgement that the msg has been sent).
+Take the uuid, update the status on the msg (originally what I wanted to do was change the key entirely on
+that particular msg, from it's key being a uuid to being the msg id, maybe it will regenerate the component entirely,
+cause of React's relationship with keys)
+
+Now for delivered acknowledgements, I can have the frontend send an ack with the msgId when it receives 
+a msg with a to field equal to the user's userId
