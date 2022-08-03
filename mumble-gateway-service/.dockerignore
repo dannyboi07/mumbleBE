@@ -1,3 +1,5 @@
 .env
 queues.txt
 dev.Dockerfile
+Dockerfile
+.dockerignore

@@ -9,7 +9,7 @@ services:
         image: mumble-user-service-img
         build:
             context: ./mumble-user-services
-            dockerfile: dev.Dockerfile
+            dockerfile: Dockerfile
         environment: # Templated variables are defined in .env
             -   DB_CONN=${DB_CONN}
             -   SRVR_ADDR=${SRVR_ADDR}
@@ -21,7 +21,7 @@ services:
         image: mumble-message-service-img
         build:
             context: ./mumble-message-service
-            dockerfile: dev.Dockerfile
+            dockerfile: Dockerfile
         environment:
             -   DB_CONN=${DB_CONN}
             -   MQ_ADDR=${MQ_ADDR}
@@ -41,7 +41,7 @@ services:
         image: mumble-gateway-service-img
         build: 
             context: ./mumble-gateway-service
-            dockerfile: dev.Dockerfile
+            dockerfile: Dockerfile
         environment:
             -   USR_SRVC_ADDR=backend-lb:80
             -   MSG_SRVC_ADDR=backend-lb:80
