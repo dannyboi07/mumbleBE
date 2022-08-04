@@ -30,33 +30,28 @@ type lastSeen struct {
 var lastSeenClient lastSeen
 
 func initLastSeen() error {
-	// if !client.isReady {
-	// 	return errors.New("RabbitMq client not ready")
-	// }
-	// publishCh: nil,
-	// consumeCh: nil,
-	// isPubReady: false,
-	// isConReady: false,
-	// notifyPubChClose: make(chan *amqp.Error),
-	// notifyConChClose: make(chan *amqp.Error),
-
 	lastSeenClient = lastSeen{}
 
+	utils.Log.Println("Initing publish channel for last seen")
 	err := initLastSeenPub()
 	if err != nil {
 		return err
 	}
 
+	utils.Log.Println("Initing consumption channel for last seen")
 	err = initLastSeenCon()
 	if err != nil {
 		return err
 	}
 
+	utils.Log.Println("Initing last seen topology")
 	err = initPubLastSeenX()
 	if err != nil {
 		utils.Log.Println("Failed to initialize exchange to publish last seen")
 		return err
 	}
+
+	utils.Log.Println("Go-oing consumption of last seens")
 	go reconnLastSeenCh()
 
 	return nil
@@ -80,6 +75,7 @@ func initLastSeenPub() error {
 	lastSeenClient.publishCh.NotifyClose(lastSeenClient.notifyPubChClose)
 	lastSeenClient.isPubReady = true
 
+	utils.Log.Println("last seen pub re/opened")
 	return nil
 }
 
@@ -101,6 +97,7 @@ func initLastSeenCon() error {
 	lastSeenClient.consumeCh.NotifyClose(lastSeenClient.notifyConChClose)
 	lastSeenClient.isConReady = true
 
+	utils.Log.Println("last seen con re/opened")
 	return nil
 }
 
@@ -110,20 +107,19 @@ func reconnLastSeenCh() {
 
 		select {
 		case <-lastSeenClient.notifyPubChClose:
-			// close(lastSeenClient.notifyPubChClose)
-			utils.Log.Println("reopening ls pub channel")
+			utils.Log.Println("Close listener: Last seen publishing channel closed")
 			err := initLastSeenPub()
 			if err != nil {
 				utils.Log.Println("Failed to reinitialize channel for last seen publishes", err)
 			}
 
 		case <-lastSeenClient.notifyConChClose:
-			// close(lastSeenClient.notifyConChClose)
-			utils.Log.Println("opening ls sub channel")
+			utils.Log.Println("Close listener: Last seen consumption channel closed")
 			err := initLastSeenCon()
 			if err != nil {
 				utils.Log.Println("Failed to reinitialize channel for last seen consumption", err)
 			}
+
 		case <-lastSeenClient.closeReconn:
 			return
 		}
@@ -146,6 +142,7 @@ func initPubLastSeenX() error {
 		false,
 		nil,
 	); err != nil {
+		utils.Log.Println("Err declaring exchange for last seens")
 		return err
 	}
 
@@ -153,6 +150,8 @@ func initPubLastSeenX() error {
 }
 
 func SubToLastSeenQ(subberUserId int64, subToUserId int64) (<-chan amqp.Delivery, error) {
+
+	utils.Log.Println("subbing to last seen", subberUserId, subToUserId)
 	utils.Log.Println("chan status", lastSeenClient.consumeCh.IsClosed())
 	if !lastSeenClient.isConReady {
 		return nil, errors.New("Last seen consumption channel not ready yet")
@@ -161,15 +160,7 @@ func SubToLastSeenQ(subberUserId int64, subToUserId int64) (<-chan amqp.Delivery
 	qAndConsumerName := strconv.FormatInt(subberUserId, 10)
 	var err error
 
-	// Dirty q disconnect, noWait is true, low priority msgs, ignoring them if any in-flight
-	// err = lastSeenClient.consumeCh.Cancel(qAndConsumerName, true)
-	// if err != nil {
-	// 	utils.Log.Println("err cancelling last seen q consumption, err:", err)
-	// }
-
-	// Using subscriber's userId to ensure a new separate queue is created,
-	// else a single queue would be created for n + 1 users interested in a particular
-	// user's last seen update and only 1 from n users will receive the update msg
+	// Using subscriber's userId for making a new separate queue
 	if _, err = lastSeenClient.consumeCh.QueueDeclare(
 		qAndConsumerName,
 		false,
@@ -178,9 +169,11 @@ func SubToLastSeenQ(subberUserId int64, subToUserId int64) (<-chan amqp.Delivery
 		true, // Using noWait true, arbitrary q
 		nil,
 	); err != nil {
+		utils.Log.Println("err declaring ls queue")
 		return nil, err
 	}
 
+	// Use routing key of the userId to subscribe to, bind to topic exchange
 	if err = lastSeenClient.consumeCh.QueueBind(
 		qAndConsumerName,
 		strconv.FormatInt(subToUserId, 10),
@@ -188,13 +181,14 @@ func SubToLastSeenQ(subberUserId int64, subToUserId int64) (<-chan amqp.Delivery
 		true, // Using noWait true, arbitrary queue
 		nil,
 	); err != nil {
+		utils.Log.Println("err binding ls queue")
 		return nil, err
 	}
 
 	var lastSeenChan <-chan amqp.Delivery
 	lastSeenChan, err = lastSeenClient.consumeCh.Consume(
-		qAndConsumerName, // qAndConsumerName
-		qAndConsumerName, // consumer name
+		qAndConsumerName,
+		qAndConsumerName,
 		true,
 		true,
 		false,
@@ -202,6 +196,7 @@ func SubToLastSeenQ(subberUserId int64, subToUserId int64) (<-chan amqp.Delivery
 		nil,
 	)
 	if err != nil {
+		utils.Log.Println("err consuming ls queue")
 		return nil, err
 	}
 
@@ -235,13 +230,10 @@ func PubLastSeen(subToUserId int64, lastSeen types.UserLastSeen) error {
 }
 
 func CancelSubToLastSeen(subberUserId int64) error {
-	// _, err := conLSCh.QueueDelete(strconv.FormatInt(subberUserId, 10), false, false, true)
-	// return err
 	if !lastSeenClient.isConReady {
 		return errors.New("last seen consumption channel not ready yet")
 	}
-	// utils.Log.Println("chan status", lastSeenClient.consumeCh.IsClosed())
-	return lastSeenClient.consumeCh.Cancel(strconv.FormatInt(subberUserId, 10), false)
+	return lastSeenClient.consumeCh.Cancel(strconv.FormatInt(subberUserId, 10), true)
 }
 
 func closeLastSeen() {
@@ -252,55 +244,3 @@ func closeLastSeen() {
 	lastSeenClient.publishCh.Close()
 	lastSeenClient.consumeCh.Close()
 }
-
-// func SubToLastSeenQ(subberUserId int64, subToUserId int64) (<-chan amqp.Delivery, error) {
-
-// 	qAndConsumerName := strconv.FormatInt(subberUserId, 10)
-// 	var err error
-
-// 	// Dirty q disconnect, noWait is true, low priority msgs, ignoring them if any in-flight
-// 	err = conLSCh.Cancel(qAndConsumerName, true)
-// 	if err != nil {
-// 		utils.Log.Println("err cancelling last seen q consumption, err:", err)
-// 	}
-
-// 	// Using subscriber's userId to ensure a new separate queue is created,
-// 	// else a single queue would be created for n + 1 users interested in a particular
-// 	// user's last seen update and only 1 from n users will receive the update msg
-// 	if _, err = conLSCh.QueueDeclare(
-// 		qAndConsumerName,
-// 		false,
-// 		true,
-// 		true,
-// 		true, // Using noWait true, arbitrary q
-// 		nil,
-// 	); err != nil {
-// 		return nil, err
-// 	}
-
-// 	if err = conLSCh.QueueBind(
-// 		qAndConsumerName,
-// 		strconv.FormatInt(subToUserId, 10),
-// 		"x_last_seen",
-// 		true, // Using noWait true, arbitrary queue
-// 		nil,
-// 	); err != nil {
-// 		return nil, err
-// 	}
-
-// 	var lastSeenChan <-chan amqp.Delivery
-// 	lastSeenChan, err = conLSCh.Consume(
-// 		qAndConsumerName, // qAndConsumerName
-// 		qAndConsumerName, // consumer name
-// 		true,
-// 		true,
-// 		false,
-// 		false,
-// 		nil,
-// 	)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return lastSeenChan, nil
-// }

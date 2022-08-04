@@ -3,6 +3,7 @@ package grpc_clients
 import (
 	"context"
 	msp "mumble-gateway-service/message_service_proto"
+	"mumble-gateway-service/utils"
 	"time"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -20,5 +21,6 @@ func GetMsgsMethod(contactId1, contactId2, offset int64) ([]byte, error) {
 		return nil, err
 	}
 
+	utils.Log.Println(messagesPb.ProtoReflect().Descriptor().Enums().Len())
 	return protojson.MarshalOptions{UseProtoNames: true}.Marshal(messagesPb)
 }

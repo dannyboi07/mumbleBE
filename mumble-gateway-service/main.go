@@ -20,15 +20,11 @@ import (
 	grpcClients "mumble-gateway-service/grpc_clients"
 	"mumble-gateway-service/rbmq"
 	"mumble-gateway-service/redis"
+	"mumble-gateway-service/s3Media"
 	"mumble-gateway-service/types"
+	ws "mumble-gateway-service/ws"
 	"mumble-gateway-service/wsclients"
 
-	// "msg-app/backend/db"
-	// "msg-app/backend/redis"
-	"mumble-gateway-service/s3Media"
-	ws "mumble-gateway-service/ws"
-
-	// "msg-app/backend/types"
 	"mumble-gateway-service/utils"
 
 	"github.com/gorilla/websocket"
@@ -37,13 +33,6 @@ import (
 func main() {
 	utils.InitLogger()
 	utils.Hostname, _ = os.Hostname()
-	// Load env vars
-	// utils.Log.Println("Loading env vars...")
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	utils.Log.Fatal("Error loading env vars")
-	// }
-	// utils.Log.Println("Loaded env vars")
 
 	// Connect to gRPC message service
 	utils.Log.Println("gRPC stub connecting to message service...")

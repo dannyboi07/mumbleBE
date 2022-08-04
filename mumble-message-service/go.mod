@@ -5,7 +5,6 @@ go 1.18
 require (
 	github.com/go-redis/redis/v9 v9.0.0-beta.1
 	github.com/jackc/pgx/v4 v4.16.1
-	github.com/joho/godotenv v1.4.0
 	github.com/rabbitmq/amqp091-go v1.3.4
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.0

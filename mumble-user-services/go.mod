@@ -7,7 +7,6 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/jackc/pgconn v1.12.1
 	github.com/jackc/pgx/v4 v4.16.1
-	github.com/joho/godotenv v1.4.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.0

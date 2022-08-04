@@ -25,23 +25,22 @@ var sendMsgClient sendMsg
 func initSendMsg() error {
 	sendMsgClient = sendMsg{}
 
-	// utils.Log.Println("Initing initsendmsgcon")
+	utils.Log.Println("Initing consumption channel for delivering msgs")
 	err := initSendMsgCon(false)
 	if err != nil {
 		return err
 	}
 
-	// utils.Log.Println("initing x and q")
+	utils.Log.Println("Establishing send msgs topology")
 	err = initSendMsgXAndQ()
 	if err != nil {
 		utils.Log.Println("Failed to initialize xchange and q's to send messages")
 		return err
 	}
 
-	// utils.Log.Println("go-ing")
+	utils.Log.Println("Go-ing send msg consumption")
 	go reconnSendMsg()
 
-	// utils.Log.Println("returning")
 	return nil
 }
 
@@ -51,6 +50,7 @@ func reconnSendMsg() {
 
 		select {
 		case <-sendMsgClient.notifyConChClose:
+			utils.Log.Println("Close listener: send msg consumption channel closed")
 			err := initSendMsgCon(true)
 			if err != nil {
 				utils.Log.Println("Failed to reinitialize channel consuming msgs to be sent, err:", err)
@@ -67,7 +67,6 @@ func initSendMsgCon(recovering bool) error {
 	}
 	sendMsgClient.isConReady = false
 
-	// utils.Log.Println("opening channel for consumption")
 	var err error
 	sendMsgClient.consumeCh, err = client.consumeConn.Channel()
 	if err != nil {
@@ -75,29 +74,16 @@ func initSendMsgCon(recovering bool) error {
 		return err
 	}
 
-	// utils.Log.Println("setting up notifs")
 	sendMsgClient.notifyConChClose = make(chan *amqp.Error)
 	sendMsgClient.consumeCh.NotifyClose(sendMsgClient.notifyConChClose)
 	sendMsgClient.isConReady = true
 
 	if recovering {
-		// utils.Log.Println("initing consumption")
-		var msgsChan <-chan amqp.Delivery
-		msgsChan, err = sendMsgClient.consumeCh.Consume(
-			"q_send_msg_"+utils.Hostname,
-			"",
-			false,
-			true,
-			false,
-			false,
-			nil,
-		)
-		utils.Log.Println(err)
+		err = initSendMsgQ()
 		if err != nil {
-			return err
+			utils.Log.Println("err reiniting q for delivering msgs", err)
 		}
-		// utils.Log.Println("go-ing consumption")
-		go consumeMsg(msgsChan)
+		return err
 	}
 
 	return nil
@@ -118,8 +104,57 @@ func initSendMsgXAndQ() error {
 		return err
 	}
 
-	// var sendWsMsgQ amqp.Queue
+	// // var sendWsMsgQ amqp.Queue
+	// qName := "q_send_msg_" + utils.Hostname
+	// if _, err = sendMsgClient.consumeCh.QueueDeclare(
+	// 	qName,
+	// 	false,
+	// 	true,
+	// 	true,
+	// 	false,
+	// 	nil,
+	// ); err != nil {
+	// 	return err
+	// }
+	// if err = sendMsgClient.consumeCh.QueueBind(
+	// 	qName,          // q_send_msg_asdio128as
+	// 	utils.Hostname, // Binding key is the container hostname
+	// 	"x_send_msg",
+	// 	false,
+	// 	nil,
+	// ); err != nil {
+	// 	return err
+	// }
+	// utils.Log.Println("initing consumption")
+	// var msgsChan <-chan amqp.Delivery
+	// msgsChan, err = sendMsgClient.consumeCh.Consume(
+	// 	"q_send_msg_"+utils.Hostname,
+	// 	"",
+	// 	false,
+	// 	true,
+	// 	false,
+	// 	false,
+	// 	nil,
+	// )
+	// utils.Log.Println(err)
+	// if err != nil {
+	// 	return err
+	// }
+	// utils.Log.Println("go-ing consumption")
+	// go consumeMsg(msgsChan)
+
+	err = initSendMsgQ()
+	if err != nil {
+		utils.Log.Println("err initing q for sending msg")
+	}
+
+	return err
+}
+
+func initSendMsgQ() error {
+
 	qName := "q_send_msg_" + utils.Hostname
+	var err error
 	if _, err = sendMsgClient.consumeCh.QueueDeclare(
 		qName,
 		false,
@@ -141,7 +176,7 @@ func initSendMsgXAndQ() error {
 		return err
 	}
 
-	utils.Log.Println("initing consumption")
+	utils.Log.Println("initing consumption for delivery of msgs")
 	var msgsChan <-chan amqp.Delivery
 	msgsChan, err = sendMsgClient.consumeCh.Consume(
 		"q_send_msg_"+utils.Hostname,
@@ -152,27 +187,12 @@ func initSendMsgXAndQ() error {
 		false,
 		nil,
 	)
-	utils.Log.Println(err)
 	if err != nil {
+		utils.Log.Println("err initing consumption for delivery of msgs", err)
 		return err
 	}
-	utils.Log.Println("go-ing consumption")
+	utils.Log.Println("go-ing consumption of msgs to be sent")
 	go consumeMsg(msgsChan)
-
-	// var msgsChan <-chan amqp.Delivery
-	// msgsChan, err = sendMsgClient.consumeCh.Consume(
-	// 	sendWsMsgQ.Name,
-	// 	"",
-	// 	false,
-	// 	true,
-	// 	false,
-	// 	false,
-	// 	nil,
-	// )
-	// if err != nil {
-	// 	return err
-	// }
-	// go consumeMsg(msgsChan)
 
 	return nil
 }
@@ -183,7 +203,6 @@ func consumeMsg(msgsChan <-chan amqp.Delivery) {
 	for msg := range msgsChan {
 
 		go func(goMsg amqp.Delivery) {
-			utils.Log.Println("Consuming msg")
 
 			var mqMsg types.WsMsg
 			err := json.Unmarshal(goMsg.Body, &mqMsg)
@@ -192,7 +211,6 @@ func consumeMsg(msgsChan <-chan amqp.Delivery) {
 			}
 
 			if *mqMsg.Type == "delivery" {
-				utils.Log.Println("Delivering msg")
 				online, err := wsclients.WsClients.ExistsAndSendMsg(*mqMsg.To, mqMsg)
 				if err != nil {
 					goMsg.Nack(false, true)
@@ -205,7 +223,6 @@ func consumeMsg(msgsChan <-chan amqp.Delivery) {
 				}
 
 			} else if *mqMsg.Type == "msg_status" {
-				utils.Log.Println("Delivering msg status", *mqMsg.Type, *mqMsg.MsgUUID)
 				var (
 					online bool
 					err    error
@@ -232,20 +249,3 @@ func closeSendMsg() {
 
 	sendMsgClient.consumeCh.Close()
 }
-
-//|| *mqMsg.Type == "update_msg_status" {
-// if *mqMsg.Type == "msg_status" {
-// testBytes, _ := json.Marshal(mqMsg)
-// utils.Log.Println(testBytes)
-// Send msg status to sender, From and To fields are flipped around
-// Going to phase this out
-// }
-// else if *mqMsg.Type == "update_msg_status" {
-// 	online, err = wsclients.WsClients.ExistsAndSendMsg(*mqMsg.To, types.WsMsg{
-// 		MsgId:  mqMsg.MsgId,
-// 		Type:   mqMsg.Type,
-// 		Status: mqMsg.Status,
-// 		From:   mqMsg.To,
-// 		To:     mqMsg.From,
-// 	})
-// }

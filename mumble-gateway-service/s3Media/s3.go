@@ -56,6 +56,7 @@ func GetS3Img(key string) (*s3.GetObjectOutput, string, int) {
 		Key:    &key,
 	}
 
+	fmt.Println("keys", os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_KEY"), key)
 	result, err := getObjSess.GetObject(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {

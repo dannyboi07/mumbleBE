@@ -19,8 +19,9 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		origin := r.Header.Get("Origin")
-		return origin == "http://localhost:3000" || origin == "http://localhost:8080"
+		// origin := r.Header.Get("Origin")
+		return true
+		// return origin == "http://localhost:3000" || origin == "http://localhost:8080"
 	},
 }
 
@@ -165,12 +166,6 @@ forLoop:
 
 					contactIdChan <- *message.To
 					continue forLoop
-				// case "getstatus":
-				// 	contactStatus, _ := redis.GetUserStatus(*message.To) // redis.CheckUStatus(*message.To)
-				// 	contactLastSeen := types.UserLastSeen{UserLastSeenTime: contactStatus}
-				// 	wsclients.WsClients.Lock()
-				// 	conn.WriteJSON(contactLastSeen)
-				// 	wsclients.WsClients.Unlock()
 				default:
 					utils.Log.Println("Unrecognized type value in ws msg field")
 					break forLoop
@@ -179,14 +174,18 @@ forLoop:
 		}
 	}
 	closeChildChan <- true
-	utils.Log.Println("Deleting user conn by id", userId)
+	utils.Log.Println("Deleting user's connection from client list", userId)
 	wsclients.WsClients.DelConn(userId)
 
 	userOfflineTime := time.Now().Format("2006-01-02T15:04:05Z07:00")
-	redis.SetUserOffline(userId, userOfflineTime)
-	err := rbmq.PubLastSeen(userId, types.UserLastSeen{UserLastSeenTime: userOfflineTime})
+	err := redis.SetUserOffline(userId, userOfflineTime)
 	if err != nil {
-		utils.Log.Println("err pubbing userLastSeen, err:", err)
+		utils.Log.Println("err setting user as offline in redis, err:", err)
+	}
+
+	err = rbmq.PubLastSeen(userId, types.UserLastSeen{UserLastSeenTime: userOfflineTime})
+	if err != nil {
+		utils.Log.Println("err publishing userLastSeen, err:", err)
 	}
 }
 
@@ -212,10 +211,13 @@ forLoop:
 		case contactId := <-contactIdChan:
 			if contactId != globalContactId {
 				utils.Log.Println("last seen handler changing contactId", contactId)
-				rbmq.CancelSubToLastSeen(globalContactId)
+				err := rbmq.CancelSubToLastSeen(userId)
+				if err != nil {
+					utils.Log.Println("err cancelling to sub to last seen, err:", err)
+				}
 				globalContactId = contactId
 				resubscribe = true
-				// Fix for corruption in chan comsumption
+				// Fix for corruption in chan consumption
 				continue forLoop
 			}
 

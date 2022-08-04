@@ -141,14 +141,6 @@ func main() {
 		// wg.Wait()
 	}
 
-	// utils.Log.Println("Loading env vars...")
-	// // Load env vars
-	// if err := godotenv.Load(); err != nil {
-	// 	utils.Log.Printf("Failed to load env vars, err: %v", err)
-	// 	return
-	// }
-	// utils.Log.Println("Loaded env vars")
-
 	utils.Log.Println("Connecting to db...")
 	// Connect to db instance
 	if err := db.InitDb(); err != nil {

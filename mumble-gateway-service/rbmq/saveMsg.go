@@ -11,7 +11,6 @@ import (
 )
 
 // Channel for publishing msgs to be saved to db
-// var pubSaveMsgCh *amqp.Channel
 
 type saveMsg struct {
 	publishCh        *amqp.Channel
