@@ -10,7 +10,7 @@ services:
         build:
             context: ./mumble-user-services
             dockerfile: Dockerfile
-        environment: # Templated variables are defined in .env
+        environment:
             -   DB_CONN=${DB_CONN}
             -   SRVR_ADDR=${SRVR_ADDR}
             -   REDIS_ADDR=redis:6379
@@ -61,6 +61,7 @@ services:
         image: nginx:alpine
         volumes:
             -   ./nginx-frontend-lb.conf:/etc/nginx/nginx.conf:ro
+            -   /etc/letsencrypt:/etc/letsencrypt:ro
         ports:
             -   80:80
         depends_on:

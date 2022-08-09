@@ -96,15 +96,17 @@ func main() {
 	wsclients.WsClients = &types.WsClients{ClientConns: make(map[int64]*websocket.Conn), RWMutex: sync.RWMutex{}}
 
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
 	r.Use(cors.Handler(cors.Options{
-		AllowOriginFunc:  AllowOriginFunc,
+		AllowOriginFunc: func(r *http.Request, origin string) bool {
+			return origin == "https://mumble.daniel-dev.tech"
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},
 		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
 	}))
-	r.Get("/media/{objFolder}/{objName}", controller.GetFromS3)
-	r.Route("/api", func(r chi.Router) {
+	r.Use(middleware.Logger)
+
+	r.Route("/mumbleapi", func(r chi.Router) {
 
 		r.Group(func(r chi.Router) {
 			r.Use(utils.AuthMiddleware)
@@ -112,8 +114,8 @@ func main() {
 			r.Get("/messages/{id}", controller.GetMsgs)
 			r.Get("/contacts", controller.GetContacts)
 			r.Get("/ws", ws.Handler)
-			r.Get("/searchUser", controller.SearchUser)
 
+			r.Get("/searchUser", controller.SearchUser)
 			r.Post("/addContact", controller.AddContact)
 
 			r.Put("/changeDp", controller.ChangeDP)
@@ -121,6 +123,9 @@ func main() {
 		})
 
 		r.Group(func(r chi.Router) {
+			// Image handler
+			r.Get("/media/{objFolder}/{objName}", controller.GetFromS3)
+
 			r.Post("/register", controller.RegisterUser)
 			r.Post("/login", controller.LoginUser)
 
@@ -133,11 +138,4 @@ func main() {
 	if err := http.ListenAndServe("0.0.0.0:8080", r); err != nil {
 		log.Fatal("Error starting server: ", err.Error())
 	}
-}
-
-func AllowOriginFunc(r *http.Request, origin string) bool {
-	//if origin == "http://localhost:3000" || origin == "http://127.0.0.1:3000" {
-	//	return true
-	//}
-	return true
 }

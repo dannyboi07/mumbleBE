@@ -14,17 +14,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
-// var profImgUpParams = &s3manager.UploadInput{
-// 	Bucket: aws.String(os.Getenv("S3_PROF_IMG_BUCK")),
-// }
-
 var sess *session.Session
 var getObjSess *s3.S3
-
-// var sess = session.Must(session.NewSession(&aws.Config{
-// 	Region:      aws.String(os.Getenv("AWS_REGION")),
-// 	Credentials: credentials.NewStaticCredentials(*aws.String(os.Getenv("AWS_ACCESS_KEY_ID")), *aws.String(os.Getenv("AWS_SECRET_KEY")), ""),
-// }))
 
 var uploader *s3manager.Uploader
 var bucket string

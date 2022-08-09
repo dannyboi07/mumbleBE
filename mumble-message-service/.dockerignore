@@ -1,3 +1,4 @@
 .env
-idplan.txt
+*.txt
 dev.Dockerfile
+Dockerfile

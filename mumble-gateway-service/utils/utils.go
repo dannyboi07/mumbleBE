@@ -207,7 +207,7 @@ func FileUpload(file *multipart.Part, buf *bufio.Reader, dir string, ext *mimety
 		return http.StatusRequestEntityTooLarge, err, ""
 	}
 
-	return 0, nil, "http://localhost:8080/" + tempFile.Name()
+	return 0, nil, "https://mumbleapi.daniel-dev.tech/mumbleapi/" + tempFile.Name()
 }
 
 func ValidFile(buf *bufio.Reader, file *multipart.Part, ext string, maxFileSize int) (io.Reader, string, int) {

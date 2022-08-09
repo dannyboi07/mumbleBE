@@ -20,12 +20,10 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
 		// origin := r.Header.Get("Origin")
-		return true
+		return r.Header.Get("Origin") == "https://mumble.daniel-dev.tech"
 		// return origin == "http://localhost:3000" || origin == "http://localhost:8080"
 	},
 }
-
-// var WsClients *types.WsClients
 
 func Handler(w http.ResponseWriter, r *http.Request) {
 	userId := r.Context().Value("userDetails").(jwt.MapClaims)["UserId"].(int64)
@@ -33,8 +31,6 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	if userPresent := wsclients.WsClients.Exists(userId); userPresent {
 		http.Error(w, "User already connected", http.StatusForbidden)
 		utils.Log.Println("client error: user exists in connection list", r.RemoteAddr)
-		wsclients.WsClients.DelConn(userId)
-		// wsclients.WsClients.RWMutex.RUnlock()
 		return
 	}
 
@@ -59,7 +55,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	conn.SetReadLimit(4096)
 
-	utils.Log.Println("client here", userId)
+	utils.Log.Println("Client connected, User Id:", userId)
 	go wsConnHandler(conn, userId)
 }
 
@@ -81,16 +77,15 @@ forLoop:
 			var message types.WsMsg
 			err := conn.ReadJSON(&message)
 			if err != nil {
-				// if errors.Is(err, websocket.)
-				utils.Log.Println("err under readjson", err)
+				if !websocket.IsCloseError(err, websocket.CloseGoingAway) {
+					utils.Log.Println("err reading msg from client, err:", err)
+				}
 				break forLoop
 			} else if message.Type == nil || message.To == nil || message.From == nil {
 				utils.Log.Println("ws-client: missing fields in ws message", conn.RemoteAddr())
 				break forLoop
 			} else {
 				// Verifying whether the "from" field in WS message sent from client side actually exists in the connection list.
-				// A more reliable alternative is querying the DB for user existence based on userId. Going with this since it's
-				// an in-memory lookup and faster.
 				if senderIsPresent := wsclients.WsClients.Exists(*message.From); !senderIsPresent {
 					utils.Log.Println("ws-client: Sender missing from list of connections, sent uId", message.From, conn.RemoteAddr())
 					break forLoop
@@ -174,7 +169,7 @@ forLoop:
 		}
 	}
 	closeChildChan <- true
-	utils.Log.Println("Deleting user's connection from client list", userId)
+	utils.Log.Println("Client going offline, User Id:", userId)
 	wsclients.WsClients.DelConn(userId)
 
 	userOfflineTime := time.Now().Format("2006-01-02T15:04:05Z07:00")
@@ -217,13 +212,12 @@ forLoop:
 				}
 				globalContactId = contactId
 				resubscribe = true
-				// Fix for corruption in chan consumption
+				// Fix for amqp.Delivery corruption in chan consumption
 				continue forLoop
 			}
 
 		case lastSeenMsg := <-lastSeenChan:
 			if !resubscribe {
-				// utils.Log.Println("rcvd last seen")
 				var (
 					lastSeen types.UserLastSeen
 					err      error
@@ -256,55 +250,3 @@ forLoop:
 	utils.Log.Println("last seen handler closing...")
 	closeParentChan <- true
 }
-
-// TO BE MOVED TO RABBITMQ
-// func wsPubSubHandler(conn *websocket.Conn, contactId chan int64, closeChild <-chan bool, closeParent chan<- bool) {
-// 	utils.Log.Println("pubsubHandler started")
-// 	subscribe := false
-
-// 	var pubsub *goredis.PubSub
-// 	var globalContactId int64
-// 	var subChannel <-chan *goredis.Message
-// forLoop:
-// 	for {
-// 		if subscribe == true {
-// 			if pubsub != nil {
-// 				utils.Log.Println("Pubsub closing")
-// 				pubsub.Close()
-// 			}
-
-// 			utils.Log.Println("pubsubHandler resubbing")
-// 			pubsub = redis.(globalContactId)
-// 			subChannel = pubsub.Channel(goredis.WithChannelHealthCheckInterval(0))
-// 			subscribe = false
-// 		}
-// 		select {
-// 		case contactId := <-contactId:
-// 			if contactId != globalContactId {
-// 				utils.Log.Println("pubsubHanlder contactId", contactId)
-// 				globalContactId = contactId
-// 				subscribe = true
-// 				continue forLoop
-// 			}
-// 		case msgs := <-subChannel:
-// 			utils.Log.Println("pubsubHandler pub rcvd on sub", msgs)
-// 			WsClients.RWMutex.Lock()
-// 			contactStatus := types.UserLastSeen{UserLastSeenTime: msgs.Payload}
-// 			err := conn.WriteJSON(contactStatus)
-// 			if err != nil {
-// 				WsClients.RWMutex.Unlock()
-// 				break forLoop
-// 			}
-
-// 			WsClients.RWMutex.Unlock()
-// 		case <-closeChild:
-// 			utils.Log.Println("pubsubHandler closing")
-// 			break forLoop
-// 		}
-// 	}
-// 	utils.Log.Println("pubsubHandler closing at end")
-// 	if pubsub != nil {
-// 		pubsub.Close()
-// 	}
-// 	closeParent <- true
-// }

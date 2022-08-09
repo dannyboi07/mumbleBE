@@ -3,3 +3,4 @@ redis-data
 mq-data
 *.pem
 *.csv
+*.txt

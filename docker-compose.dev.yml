@@ -16,10 +16,12 @@ services:
         build:
             context: ./mumble-user-services
             dockerfile: dev.Dockerfile
-        environment: # Templated variables are defined in .env
+        environment:
             - DB_CONN=${DB_CONN}
             - SRVR_ADDR=${SRVR_ADDR}
             - REDIS_ADDR=redis:6379
+            - REDIS_PWD=
+            - REDIS_DB=0
     message-service:
         image: mumble-message-service-img
         build:
@@ -27,11 +29,11 @@ services:
             dockerfile: dev.Dockerfile
         environment:
             - DB_CONN=${DB_CONN}
-            - MQ_ADDR=rabbitmq:5672
+            - MQ_ADDR=amqp://rabbitmq:5672
             - REDIS_ADDR=redis:6379
-            - REDIS_PWD=${REDIS_PWD}
-            - REDIS_DB=${REDIS_DB}
-            - SRVR_ADDR=${SRVR_ADDR} #message-service:${SRVR_PORT}
+            - REDIS_PWD=
+            - REDIS_DB=0
+            - SRVR_ADDR=${SRVR_ADDR}
         depends_on:
             - redis
     backend-lb:
@@ -43,14 +45,16 @@ services:
             - message-service
     gateway-service:
         image: mumble-gateway-service-img
-        build: 
+        build:
             context: ./mumble-gateway-service
             dockerfile: dev.Dockerfile
         environment:
             - USR_SRVC_ADDR=backend-lb:80
             - MSG_SRVC_ADDR=backend-lb:80
-            - MQ_ADDR=rabbitmq:5672
+            - MQ_ADDR=amqp://rabbitmq:5672
             - REDIS_ADDR=redis:6379
+            - REDIS_PWD=
+            - REDIS_DB=0
             - S3_BUCKET=${S3_BUCKET}
             - AWS_REGION=${AWS_REGION}
             - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
@@ -63,7 +67,7 @@ services:
     frontend-lb:
         image: nginx:alpine
         volumes:
-            - ./nginx-frontend-lb.conf:/etc/nginx/nginx.conf:ro
+            - ./nginx-frontend-lb-dev.conf:/etc/nginx/nginx.conf:ro
         ports:
             - 80:80
         depends_on:

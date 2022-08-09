@@ -128,12 +128,12 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var (
-			parsedFile io.Reader
-			statusInt  int
-			err        error
-			fileLink   string
+			parsedFile   io.Reader
+			statusInt    int
+			err          error
+			fileRandLink string
 		)
-		parsedFile, fileLink, statusInt = utils.ValidFile(buf, profilePic, fileMime.String(), maxFileSize)
+		parsedFile, fileRandLink, statusInt = utils.ValidFile(buf, profilePic, fileMime.String(), maxFileSize)
 		switch statusInt {
 		case 0:
 			break
@@ -147,11 +147,12 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		fileFullLink := "https://mumble.daniel-dev.tech/mumbleapi/media/profile-images/" + fileRandLink
 		statusInt, err = grpcClients.RegisterUserMethod(types.RegisterUser{
 			Name:        &name,
 			Email:       &email,
 			Password:    &password,
-			Profile_Pic: &fileLink,
+			Profile_Pic: &fileFullLink,
 		})
 		if err != nil {
 			http.Error(w, err.Error(), statusInt)
@@ -159,7 +160,7 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = s3Media.S3UploadImage(parsedFile, "profile-images/"+fileLink, fileMime.String())
+		err = s3Media.S3UploadImage(parsedFile, "profile-images/"+fileRandLink, fileMime.String())
 		if err != nil {
 			utils.Log.Println("err uploading profile pic while registering user, err:", err)
 		}
@@ -218,8 +219,8 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 		accTkCookie *http.Cookie
 		refTkCookie *http.Cookie
 	)
-	accTkCookie = &http.Cookie{Name: "accessToken", Value: loginResp.AccessToken, MaxAge: int(loginResp.AccessTokenExp), Path: "/api", HttpOnly: true}
-	refTkCookie = &http.Cookie{Name: "refreshToken", Value: loginResp.RefreshToken, MaxAge: int(loginResp.RefreshTokenExp), Path: "/api/auth", HttpOnly: true}
+	accTkCookie = &http.Cookie{Name: "accessToken", Value: loginResp.AccessToken, MaxAge: int(loginResp.AccessTokenExp), Path: "/mumbleapi", HttpOnly: true, Secure: true, SameSite: http.SameSiteDefaultMode}
+	refTkCookie = &http.Cookie{Name: "refreshToken", Value: loginResp.RefreshToken, MaxAge: int(loginResp.RefreshTokenExp), Path: "/mumbleapi/auth", HttpOnly: true, Secure: true, SameSite: http.SameSiteDefaultMode}
 	http.SetCookie(w, accTkCookie)
 	http.SetCookie(w, refTkCookie)
 
@@ -389,12 +390,12 @@ func ChangeDP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var (
-		parsedFile io.Reader
-		fileLink   string
-		statusInt  int
+		parsedFile   io.Reader
+		fileRankLink string
+		statusInt    int
 	)
 	// utils.S3FileUpload(buf, profilePic, "profile-images/", fileType, int64(maxFileSize))
-	parsedFile, fileLink, statusInt = utils.ValidFile(buf, profilePic, fileType.Extension(), maxFileSize)
+	parsedFile, fileRankLink, statusInt = utils.ValidFile(buf, profilePic, fileType.Extension(), maxFileSize)
 	switch statusInt {
 	case 0:
 		break
@@ -420,21 +421,22 @@ func ChangeDP(w http.ResponseWriter, r *http.Request) {
 		userId = int64(userIdFloat)
 	}
 
-	statusInt, err = grpcClients.ChangeDpMethod(userId, fileLink)
+	fileFullLink := "https://mumbleapi.daniel-dev.tech/mumbleapi/media/profile-images/" + fileRankLink
+	statusInt, err = grpcClients.ChangeDpMethod(userId, fileFullLink)
 	if err != nil {
 		http.Error(w, err.Error(), statusInt)
 		utils.Log.Println("grpc err change dp method err:", err, r.RemoteAddr)
 		return
 	}
 
-	if err = s3Media.S3UploadImage(parsedFile, fileLink, fileType.String()); err != nil {
+	if err = s3Media.S3UploadImage(parsedFile, "profile-images/"+fileRankLink, fileType.String()); err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		utils.Log.Println("Err uploading new dp to s3, userId:", userId, "err:", err)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(types.UserProfileLink{ProfileImgLink: fileLink})
+	json.NewEncoder(w).Encode(types.UserProfileLink{ProfileImgLink: fileFullLink})
 }
 
 func SearchUser(w http.ResponseWriter, r *http.Request) {
